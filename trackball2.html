@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="stylesheet" href="css/stylesheet.css">
+		<script src="js/commonFunctions.js"></script>
+		<script src="js/gl-matrix-min.js"></script>
+		<script src="js/webglTools.js"></script>
+		<script>
+			var textureSize = 256;
+			var workingCanvas, ctx;
+			var flag = false;
+			var prevX = 0, currX = 0, prevY = 0, currY = 0;
+			var dot_flag = false;
+			var curStrokeStyle = "blue",
+				curStrokeWidth = 8;
+			function initDrawingCanvas() {
+				workingCanvas = document.getElementById('drawingCanvas');
+				ctx = workingCanvas.getContext("2d");
+				w = workingCanvas.width;
+				h = workingCanvas.height;
+				workingCanvas.addEventListener("mousemove", function (e) {	resetPositions('move', e) }, false);
+				workingCanvas.addEventListener("mousedown", function (e) {	resetPositions('down', e) }, false);
+				workingCanvas.addEventListener("mouseup", function (e) { resetPositions('up', e) }, false);
+				workingCanvas.addEventListener("mouseout", function (e) { resetPositions('out', e) }, false);
+			}
+			function draw() {
+				ctx.beginPath();
+				ctx.moveTo(prevX, prevY);
+				ctx.lineTo(currX, currY);
+				ctx.strokeStyle = curStrokeStyle;
+				ctx.lineWidth = curStrokeWidth;
+				ctx.stroke();
+				ctx.closePath();
+			}
+		    function generateTextureWith2Darray(data, newTexture){
+				glContext.bindTexture(glContext.TEXTURE_2D, newTexture);
+				glContext.texImage2D(glContext.TEXTURE_2D, 0, glContext.RGBA, glContext.RGBA, glContext.UNSIGNED_BYTE, data);
+				glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MIN_FILTER, glContext.NEAREST);
+				glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MAG_FILTER, glContext.NEAREST);
+		    }
+			function copyOnTexture() {
+				document.getElementById("copiedImage").style.border = "3px solid";
+				document.getElementById("copiedImage").src = workingCanvas.toDataURL();
+				document.getElementById("copiedImage").style.display = "inline";
+			    var randCanvas = document.createElement("canvas");
+				randCanvas.width = textureSize;
+				randCanvas.height = textureSize;
+				var ctx = randCanvas.getContext("2d");
+				ctx.drawImage(drawingCanvas, 0, 0);
+				var red = 240, green = 180, blue = 213;
+				ctx.fillStyle = "rgb(" + red + "," + green + "," + blue + ")";
+				for (var y = 0; y < textureSize; y +=16){
+					for (var x = 0; x < textureSize; x +=16){
+						if (Math.random() > 0.5){
+							ctx.fillRect(x+4, y+4, 8, 8);
+						}
+					}
+				}
+				texColorTab[0] = glContext.createTexture();
+				generateTextureWith2Darray(randCanvas, texColorTab[0]);
+			}
+			function resetCurrentDrawing() {
+				ctx.clearRect(0, 0, w, h);
+				copyOnTexture();
+			}
+			function resetPositions(mouseEvent, e) {
+				if (mouseEvent == 'down') {
+					prevX = currX;
+					prevY = currY;
+					currX = e.clientX - workingCanvas.offsetLeft;
+					currY = e.clientY - workingCanvas.offsetTop;
+					flag = true;
+					dot_flag = true;
+					if (dot_flag) {
+						ctx.beginPath();
+						ctx.fillStyle = curStrokeStyle;
+						ctx.fillRect(currX, currY, 2, 2);
+						ctx.closePath();
+						dot_flag = false;
+					}
+				}
+				if (mouseEvent == 'up' || mouseEvent == "out") {
+					copyOnTexture();
+					flag = false;
+				}
+				if (( mouseEvent == 'move') && (flag)) {
+					prevX = currX;
+					prevY = currY;
+					currX = e.clientX - workingCanvas.offsetLeft;
+					currY = e.clientY - workingCanvas.offsetTop;
+					draw();
+				}
+			}
+		</script>
+		<script id="shader-vs" type="x-shader/x-vertex">
+			attribute vec3 aVertexPosition;
+			attribute vec2 aTextureCoord;
+			uniform mat4 uMVMatrix;
+			uniform mat4 uPMatrix;
+			varying vec2 vTextureCoord;
+			void main(void) {
+				vTextureCoord = aTextureCoord;
+				gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+			}
+		</script>
+		<script id="shader-fs" type="x-shader/x-fragment">
+			#ifdef GL_ES
+			precision highp float;
+			#endif
+			uniform sampler2D uColorTexture;
+			uniform float deltaTexX;
+			uniform float deltaTexY;
+			varying vec2 vTextureCoord;
+			void main(void) {
+				if(gl_FrontFacing)
+				{
+					vec2 offset = vec2(deltaTexX, deltaTexY);
+					vec2 mapCoord = vec2(vTextureCoord.s, vTextureCoord.t);
+					mapCoord += offset;
+					if(mapCoord.x > 1.0) mapCoord.x -= 1.0;
+					if(mapCoord.y > 1.0) mapCoord.y -= 1.0;
+					vec4 texelColor = texture2D(uColorTexture, mapCoord);
+					gl_FragColor = texelColor.rgba;
+				}
+				else
+				gl_FragColor = vec4( 0.1, 0.1, 0.1, 1.0 );
+			}
+		</script>
+		<script>
+            var mouseX = 0;
+            var mouseY = 0;
+            var mousePressed = false;
+			var currentColorMapID    = 1;
+			var currentNormalMapID   = 1;
+			var currentSpecularMapID = 1;
+			const M_PI = 3.1415926535897932384626433832795;
+			const M_2PI = 2.0*M_PI;
+			const maxSample = 5;
+			var normalBuffer = null;
+			var vertexBuffer = null;
+			var textCoordsBuffer = null;
+			var texColorTab = new Array();
+			var vertices   = [];
+			var textCoords = [];
+			var tempMatrix = mat4.create();
+            var rotateMatrix = mat4.create();
+			var mvMatrix = mat4.create();
+			var pMatrix  = mat4.create();
+			var nMatrix  = mat4.create();
+			var rotLight = 0;
+			var objectInRotation = 1;
+            var textureInTranslation = 0;
+			var textureOffsetX = 0.0;
+			var textureOffsetY = 0.0;
+			const deltaTranslateX = 0.001;
+			const deltaTranslateY = 0.002;
+            mat4.identity(rotateMatrix);
+			function initShaderParameters(prg){
+				prg.vertexPositionAttribute = glContext.getAttribLocation(prg, "aVertexPosition");
+				glContext.enableVertexAttribArray(prg.vertexPositionAttribute);
+				prg.textureCoordsAttribute  = glContext.getAttribLocation(prg, "aTextureCoord");
+				glContext.enableVertexAttribArray(prg.textureCoordsAttribute);
+				prg.pMatrixUniform          = glContext.getUniformLocation(prg, 'uPMatrix');
+				prg.mvMatrixUniform         = glContext.getUniformLocation(prg, 'uMVMatrix');
+				prg.nMatrixUniform	        = glContext.getUniformLocation(prg, "uNMatrix");
+			    prg.lightPositionUniform    = glContext.getUniformLocation(prg, 'uLightPosition');
+			    prg.shininessUniform        = glContext.getUniformLocation(prg, 'uShininess');
+			    prg.lightAmbientUniform     = glContext.getUniformLocation(prg, 'uLightAmbient');
+			    prg.materialDiffuseUniform  = glContext.getUniformLocation(prg, 'uMaterialDiffuse');
+			    prg.materialSpecularUniform = glContext.getUniformLocation(prg, 'uMaterialSpecular');
+				prg.uColorTexture 			= glContext.getUniformLocation(prg, "uColorTexture");
+				prg.deltaTexX 				= glContext.getUniformLocation(prg, "deltaTexX");
+				prg.deltaTexY				= glContext.getUniformLocation(prg, "deltaTexY");
+			}
+			function initBuffers(){
+				vertices = [
+                            -1.0, -1.0, -1.0,
+                            -1.0,  1.0, -1.0,
+                            -1.0, -1.0,  1.0,
+                            -1.0, -1.0,  1.0,
+                            -1.0,  1.0, -1.0,
+                            -1.0,  1.0,  1.0,
+                            1.0, -1.0, -1.0,
+                            1.0,  1.0, -1.0,
+                            1.0, -1.0,  1.0,
+                            1.0, -1.0,  1.0,
+                            1.0,  1.0, -1.0,
+                            1.0,  1.0,  1.0,
+                            -1.0, -1.0, -1.0,
+                            1.0, -1.0, -1.0,
+                            -1.0, -1.0,  1.0,
+                            -1.0, -1.0,  1.0,
+                            1.0, -1.0, -1.0,
+                            1.0, -1.0,  1.0,
+                            -1.0,  1.0, -1.0,
+                            1.0,  1.0, -1.0,
+                            -1.0,  1.0,  1.0,
+                            -1.0,  1.0,  1.0,
+                            1.0,  1.0, -1.0,
+                            1.0,  1.0,  1.0,
+                            -1.0, -1.0, -1.0,
+                            1.0, -1.0, -1.0,
+                            -1.0,  1.0, -1.0,
+                            -1.0,  1.0, -1.0,
+                            1.0, -1.0, -1.0,
+                            1.0,  1.0, -1.0,
+                            -1.0, -1.0,  1.0,
+                            1.0, -1.0,  1.0,
+                            -1.0,  1.0,  1.0,
+                            -1.0,  1.0,  1.0,
+                            1.0, -1.0,  1.0,
+                            1.0,  1.0,  1.0 ];
+				textCoords = [   0, 0,
+                                 1, 0,
+                                 0, 1,
+                                 0, 1,
+                                 1, 0,
+                                 1, 1,
+                                0, 0,
+                                1, 0,
+                                0, 1,
+                                0, 1,
+                                1, 0,
+                                1, 1,
+                                 0, 0,
+                                1, 0,
+                                 0, 1,
+                                 0, 1,
+                                1, 0,
+                                1, 1,
+                                 0, 1,
+                                1, 1,
+                                 0, 0,
+                                 0, 0,
+                                1, 1,
+                                1, 0,
+                                 0, 1,
+                                1, 1,
+                                 0, 0,
+                                 0, 0,
+                                1, 1,
+                                1, 0,
+                                 0, 0,
+                                1, 0,
+                                 0, 1,
+                                 0, 1,
+                                1, 0,
+                                1, 1 ];
+				normalBuffer     = getArrayBufferWithArray(vertices);
+				vertexBuffer     = getArrayBufferWithArray(vertices);
+				textCoordsBuffer = getArrayBufferWithArray(textCoords);
+			}
+			function setLightPosition()
+			{
+				if( objectInRotation === 1 )
+				{
+					rotLight += 0.03;
+					if( rotLight>M_2PI) rotLight = -M_2PI;
+				}
+				glContext.uniform3f(prg.lightPositionUniform, 2.0*Math.cos(rotLight), 2.0*Math.sin(rotLight), 1.0);
+			}
+			function degToRad(degrees){
+				return degrees * Math.PI / 180;
+			}
+			function rotateCamera(angle, vector)
+			{
+				mat4.identity(tempMatrix);
+				mat4.rotate(tempMatrix, tempMatrix, degToRad(angle), vector);
+				mat4.multiply(rotateMatrix, tempMatrix, rotateMatrix);
+			}
+			function drawScene(){
+				glContext.clearColor(0.0, 0.0, 0.0, 1.0);
+				glContext.enable(glContext.DEPTH_TEST);
+				glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);
+				glContext.viewport( 0.0, 0.0, c_width, c_height);
+				mat4.perspective(pMatrix, degToRad(60), c_width / c_height, 0.1, 1000.0);
+                mat4.identity(mvMatrix);
+                mat4.translate(pMatrix, pMatrix, [0.0, 0.0, -4.0]);
+				mat4.multiply(mvMatrix, rotateMatrix, mvMatrix);
+				setLightPosition();
+                switch( textureInTranslation ) {
+					case 1:
+						if (textureOffsetX<1.0) textureOffsetX += deltaTranslateX;
+						else textureOffsetX = 0.0;
+					break;
+					case 2:
+						if (textureOffsetY<1.0) textureOffsetY += deltaTranslateY;
+						else textureOffsetY = 0.0;
+					break;
+					case 3:
+						if (textureOffsetX<1.0) textureOffsetX += deltaTranslateX;
+						else textureOffsetX = 0.0;
+						if (textureOffsetY<1.0) textureOffsetY += deltaTranslateY;
+						else textureOffsetY = 0.0;
+					break;
+				}
+				glContext.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
+				glContext.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
+			    mat4.copy(nMatrix, mvMatrix);
+			    mat4.invert(nMatrix, nMatrix);
+			    mat4.transpose(nMatrix, nMatrix);
+
+			    glContext.uniformMatrix4fv(prg.nMatrixUniform, false, nMatrix);
+				glContext.bindBuffer(glContext.ARRAY_BUFFER, normalBuffer);
+				glContext.vertexAttribPointer(prg.vertexNormalAttribute, 3, glContext.FLOAT, false, 0, 0);
+
+				glContext.bindBuffer(glContext.ARRAY_BUFFER, vertexBuffer);
+				glContext.vertexAttribPointer(prg.vertexPositionAttribute, 3, glContext.FLOAT, false, 0, 0);
+
+				glContext.bindBuffer(glContext.ARRAY_BUFFER, textCoordsBuffer);
+				glContext.vertexAttribPointer(prg.textureCoordsAttribute, 2, glContext.FLOAT, false, 0, 0);
+				
+				glContext.activeTexture(glContext.TEXTURE0);
+				glContext.bindTexture(glContext.TEXTURE_2D, texColorTab[0]);
+				glContext.uniform1i(prg.uColorTexture, 0);
+                glContext.uniform1f(prg.deltaTexX, textureOffsetX);
+				glContext.uniform1f(prg.deltaTexY, textureOffsetY);
+                glContext.drawArrays(glContext.TRIANGLES, 0, 36);
+			}
+			function initGLCanvas(){
+				glContext = getGLContext('webgl-canvas');
+				initProgram();
+				initBuffers();
+                initTextureWithImage("fig/frontPage_colorMap.png", texColorTab);
+				renderLoop();
+			}
+			function initBothCanvas(){
+				initDrawingCanvas();
+				initGLCanvas();
+			}
+		</script>
+	<head>
+	<body onload="initBothCanvas()">
+		<script>displayTitle("Ch.08 E.g.11 : Dessinons notre propre texture", 1,1,1,1,1,1,1);</script>
+		<p>
+			Dessinons avec la souris une texture sur le canevas de gauche.
+			<input type="button" value="Tout effacer" id="clr" size="23" onclick="resetCurrentDrawing()">
+		</p>
+		<canvas id="drawingCanvas" width="256" height="256" style="position:absolute;top:170px;left:10px;border:3px solid;">
+			HTML5 is not supported
+		</canvas>
+		<img id="copiedImage" width="256" height="256" style="position:absolute;top:170px;left:320px;border:3px solid;">
+		<canvas id="webgl-canvas" width="400" height="400" style="position:absolute;top:170px;left:630px;border:1px solid;">
+			HTML5 is not supported
+		</canvas>
+	</body>
+	<script id='code-js' type="text/javascript">
+		var graphicsCanvas = document.getElementById('webgl-canvas');
+		function getMousePosition(graphicsCanvas, evt) {
+			var rect = graphicsCanvas.getBoundingClientRect();
+			return {
+				x: evt.clientX - rect.left,
+				y: evt.clientY - rect.top
+			};
+		}
+		graphicsCanvas.addEventListener('mousedown', function(evt) {
+			if (evt.button == 0) {
+				mousePressed = true;
+				var mousePosition = getMousePosition(graphicsCanvas, evt);
+				mouseX = mousePosition.x;
+				mouseY = mousePosition.y;
+			}
+		}, false);
+		graphicsCanvas.addEventListener('mousemove', function(evt) {
+			if (mousePressed) {
+				var mousePosition = getMousePosition(graphicsCanvas, evt);
+				var diffX = mousePosition.x - mouseX;
+				var diffY = mousePosition.y - mouseY;
+				mouseX = mousePosition.x;
+				mouseY = mousePosition.y;
+				rotateCamera(diffY, [1, 0, 0]);
+				rotateCamera(diffX, [0, 1, 0]);
+			}
+		}, false);
+		graphicsCanvas.addEventListener('mouseup', function(evt) {
+			if (evt.button == 0) {
+				mousePressed = false;
+			}
+		}, false);
+	</script>
+</html>

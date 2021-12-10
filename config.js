@@ -179,8 +179,6 @@ class Configuration {
 		let walls = [
 			// Walls x1, y1, x2, y2
 			0.1, 0.1, 0.9, 0.9, //draws wall from (0.1, 0.1) to (0.9, 0.9)
-			0.1, 0.9, 0.9, 0.1,
-			0.3, 0.1, 0.5, 0.4,
 		];
 
 		return new Configuration(lights, lightsColor, lightsIntensity, walls);
@@ -225,13 +223,17 @@ class Configuration {
 }
 
 function makeWalls(walls2D) {
-	let height = 1.0;
-	let walls3D = [];
 	
+	let height = 2.0;
+	let walls3D = [];
+	let wallsIndices = [];
     //Assert walls2D.length % 4 == 0
 	
+	// DO NOT USE TRIANGLESTRIP, USE TRIANGLE
 	for (let i = 0; i < walls2D.length / 4; i++) {
+		
 		let currIndex = i * 4;
+		console.log(walls2D[currIndex] + " ");
 		let A1x = walls2D[currIndex];
 		let A1y = walls2D[currIndex+1];
 		let B1x = walls2D[currIndex+2];
@@ -251,22 +253,13 @@ function makeWalls(walls2D) {
         walls3D.push(A1x);
 		walls3D.push(A1y);
 		walls3D.push(height);
-		
-		// B1 
-		walls3D.push(B1x);
-		walls3D.push(B1y);
-		walls3D.push(0);
 
 		// B2
 		walls3D.push(B1x);
 		walls3D.push(B1y);
 		walls3D.push(height);
-
-		// A2
-        walls3D.push(A1x);
-		walls3D.push(A1y);
-        walls3D.push(height);
+		break;
     }
-
+	console.log(walls3D);
 	return walls3D;
 }

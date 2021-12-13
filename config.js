@@ -226,12 +226,10 @@ function makeWalls(walls2D) {
 	
 	let height = 2.0;
 	let walls3D = [];
-	let wallsIndices = [];
     //Assert walls2D.length % 4 == 0
 	
-	// DO NOT USE TRIANGLESTRIP, USE TRIANGLE
+	// DO NOT USE TRIANGLESTRIP, USE TRIANGLES
 	for (let i = 0; i < walls2D.length / 4; i++) {
-		
 		let currIndex = i * 4;
 		console.log(walls2D[currIndex] + " ");
 		let A1x = walls2D[currIndex];
@@ -260,6 +258,6 @@ function makeWalls(walls2D) {
 		walls3D.push(height);
 		break;
     }
-	console.log(walls3D);
+	
 	return walls3D;
 }

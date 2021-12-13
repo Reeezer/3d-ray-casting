@@ -1,10 +1,20 @@
 "use strict";
 
+/* gl.framebufferTexture2D
+ * gl.bindTexture
+ * sampler 2D pour dessiner les textues (types de données du shader à créer pour faire les rotations...).
+ * Pour dessiner des éléments : drawElement ET PAS DRAWARRAY !!! (sinon ne prend pas en compte les indices)
+ * Creer une classe MESH où on fait les VEO VAO etc... --> ce sera plus simple.
+ * Après mesh.draw, mesh.enable 
+ */
+
 const canvas = document.getElementById("canvas");
 const gl = canvas.getContext("webgl2", {
 	preserveDrawingBuffer: true,
 	antialias: true,
 });
+
+gl.getExtension("EXT_color_buffer_float"); // pour dessiner dans des textures de floats
 
 const vs = document.getElementById("shader-vs");
 const fs = document.getElementById("shader-fs");
@@ -13,7 +23,7 @@ const MAX_LIGHTS = 30;
 
 gl.enable(gl.BLEND);
 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-gl.clearColor(0.0, 0.0, 0.0, 1.0);
+gl.clearColor(0.0, 0.1, 0., 1.0);
 
 let vertices = [
 	-1.0, 1.0, 0.0, // top left
@@ -28,14 +38,15 @@ vertices = new Float32Array(vertices);
 let indices = [0, 1, 2, 3];
 
 // Triangle (not triangle strip)
-let wallIndices = [0, 1, 2, 1, 2, 3];
+let wallIndices = [0,1,2,1,2,3];
+
+indices = new Uint8Array(indices);
+wallIndices = new Uint8Array(wallIndices);
 
 var tempMatrix = mat4.create();
 var rotateMatrix = mat4.create();
 var mvMatrix = mat4.create();
 var pMatrix = mat4.create();
-
-indices = new Uint8Array(indices);
 
 let vao = gl.createVertexArray();
 gl.bindVertexArray(vao);
@@ -44,13 +55,16 @@ let buffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW, 0); //Here we get both triangles for the scene (from verticies)
 
-
 gl.enableVertexAttribArray(0);
 gl.vertexAttribPointer(0, 3, gl.FLOAT, false, vertices.BYTES_PER_ELEMENT * 3, 0);
 
 let ibo = gl.createBuffer();
 //gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 //gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW, 0);
+
+let wallVBO = 0;
+let wallVAO = 0;
+let wallEBO = 0;
 
 const configs = [
 	Configuration.scenario1(),
@@ -67,6 +81,8 @@ let lights = [];
 let lightsColor = [];
 let lightsIntensity = [];
 let walls = [];
+let wallsVertexBuffer = null;
+let wallsIndicesBuffer = null;
 let wallBuffer = null;
 
 let fading = { value: 100 };
@@ -100,11 +116,7 @@ fShader.compileShader();
 
 mat4.identity(rotateMatrix);
 
-let program = Shader.createProgram(
-	vShader.compiledShader,
-	fShader.compiledShader,
-	gl
-);
+let program = Shader.createProgram(vShader.compiledShader, fShader.compiledShader, gl);
 
 // Uniforms
 uniformWindowSize = gl.getUniformLocation(program, "u_WindowSize");
@@ -128,8 +140,51 @@ changeConfig(0);
 
 window.requestAnimationFrame(draw);
 
+// FIXME remove
+
+	// gen the data
+wallsVertexBuffer = new Float32Array([
+	0.0, -1.0, 0.0,
+	0.0,  1.0, 0.0,
+	0.0,  1.0, 1.0,
+	0.0, -1.0, 1.0
+]);
+let wallsIndices = [0, 1, 2, 0, 2, 3];
+wallsIndicesBuffer = new Uint16Array(wallsIndices);
+
+// disable vertex array for safety
+gl.bindVertexArray(null);
+
+wallVBO = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
+gl.bufferData(gl.ARRAY_BUFFER, wallsVertexBuffer, gl.STATIC_DRAW);
+
+wallEBO = gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallsIndicesBuffer, gl.STATIC_DRAW);
+
+wallVAO = gl.createVertexArray();
+
+// now bind it to the VAO
+gl.bindVertexArray(wallVAO);
+// bind indices
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
+// vertices and attributes
+gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
+gl.vertexAttribPointer(0, 3, gl.FLOAT, false, wallsVertexBuffer.BYTES_PER_ELEMENT * 3, 0);
+gl.enableVertexAttribArray(0);
+
+// unbind par sécurité
+gl.bindVertexArray(null);
+
+// ------------
+
+
 function draw() {
 	gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.clear(gl.DEPTH_BUFFER_BIT);
+
+	gl.enable(gl.DEPTH_TEST);
 
 	mat4.perspective(pMatrix, degToRad(60), canvas.width / canvas.height, 0.1, 1000.0);
 	mat4.identity(mvMatrix);
@@ -143,15 +198,25 @@ function draw() {
 
 	gl.bindVertexArray(vao);
 
-	uniformIsWall = false;
+	gl.uniform1i(uniformIsWall, 0);
+	
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW, 0);
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 	gl.drawElements(gl.TRIANGLE_STRIP, indices.length, gl.UNSIGNED_BYTE, 0);
 	
-	uniformIsWall = true;
-	//gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,walls); 
-	//gl.vertexAttribPointer(program.wallVertexPositionAttribute,3,gl.FLOAT,false,0,0); //IDK What that is
-	//gl.drawElements(gl.TRIANGLE,6,gl.UNSIGNED_SHORT,0);
+	//gl.clear(gl.COLOR_BUFFER_BIT);
+	
+	gl.uniform1i(uniformIsWall, 1);
+
+	// draw da wall
+	gl.bindVertexArray(wallVAO);
+	gl.drawElements(gl.TRIANGLES, wallsIndices.length, gl.UNSIGNED_SHORT, 0);
+	gl.bindVertexArray(null);
+
+	// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallIndices, gl.STATIC_DRAW, 0);
+	// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wbo);
+	// gl.vertexAttribPointer(program.wallVertexPositionAttribute,3,gl.FLOAT,false,0,0);
+	// gl.drawElements(gl.TRIANGLE, wallIndices.length, gl.UNSIGNED_BYTE, 0); // was gl.UNSIGNED_SHORT
 
 	window.requestAnimationFrame(draw);
 }
@@ -182,9 +247,6 @@ function changeConfig(e) {
 	lightsIntensity.push(...c.lightsIntensity);
 
 	walls = makeWalls(c.walls);
-	//wallBuffer = getArrayBufferWithArray(walls)
-
-	//gl.bufferData(gl.ARRAY_BUFFER, walls, gl.STATIC_DRAW, 0);
 
 	updateDisplay();
 }
@@ -194,12 +256,6 @@ function updateDisplay() {
 	gl.uniform3fv(uniformLightsColor, lightsColor);
 	gl.uniform1fv(uniformLightsIntensity, lightsIntensity);
 	gl.uniform1i(uniformLightsLength, lights.length / 2);
-
-	gl.uniform4fv(uniformWalls, walls);
-	//gl.bindBuffer(glContext.ARRAY_BUFFER, walls);
-	console.log(uniformWalls);
-	gl.uniform1i(uniformWallsLength, walls.length / 4);
-	//On dessine jamais ces walls
 }
 
 function initGUI() {

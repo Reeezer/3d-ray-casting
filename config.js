@@ -147,7 +147,9 @@ class Configuration {
 
 		let lightsIntensity = [1.0, 1.0, 1.0, 1.0];
 
-		let walls = [0.1, 0.1, 0.9, 0.9, 0.1, 0.9, 0.9, 0.1];
+		let walls = [
+			0.0, 0.0, 0.9, 0.9
+		];
 
 		return new Configuration(lights, lightsColor, lightsIntensity, walls);
 	}
@@ -178,7 +180,10 @@ class Configuration {
 
 		let walls = [
 			// Walls x1, y1, x2, y2
-			0.0,0.2, 0.5, 0.1, //draws wall from (0.1, 0.1) to (0.9, 0.9)
+			0.1, 0.1, 0.9, 0.1,
+			0.1, 0.5, 0.1, 0.9,
+			0.5, 0.5, 0.9, 0.9,
+			0.3, 0.6, 0.5, 0.9,
 		];
 
 		return new Configuration(lights, lightsColor, lightsIntensity, walls);
@@ -248,27 +253,200 @@ function makeWalls(walls2D) {
 		B1x = B1x * 2 -1
 		B1y = B1y * 2 -1
 
+		// now we have the fondations
 
-		// A1
-        walls3D.push(A1x);
-		walls3D.push(A1y);
-        walls3D.push(0);
+		// // old version, with more efficiency but less readability
+        // walls3D.push(A1x);
+		// walls3D.push(A1y);
+        // walls3D.push(0);
 		
-		// B1
-        walls3D.push(B1x);
-		walls3D.push(B1y);
-        walls3D.push(0);
+		// // B1
+        // walls3D.push(B1x);
+		// walls3D.push(B1y);
+        // walls3D.push(0);
 		
-		// A2
-        walls3D.push(A1x);
-		walls3D.push(A1y);
-		walls3D.push(height);
+		// // A2
+        // walls3D.push(A1x);
+		// walls3D.push(A1y);
+		// walls3D.push(height);
 
-		// B2
-		walls3D.push(B1x);
-		walls3D.push(B1y);
-		walls3D.push(height);
-    }
+		// // B2
+		// walls3D.push(B1x);
+		// walls3D.push(B1y);
+		// walls3D.push(height);
+
+		// new version, more readability but less efficiency
+		let ground1 = new Point(A1x, A1y, 0);
+		let ground2 = new Point(B1x, B1y, 0);
+
+		let top1 = new Point(A1x, A1y, height);
+		let top2 = new Point(B1x, B1y, height);
+		
+		// // use only to get flat walls
+		// push_face_into_wall(ground1, ground2, top1, top2, walls3D);
+		
+		// each wall has 5 faces (the 6th is on the ground)
+		
+		// vector ground1->ground2
+		let g1_vector = [ 
+			ground2.getX() - ground1.getX(),
+			ground2.getY() - ground1.getY()
+		];
+		
+		// vector ground2->ground1
+		let g2_vector = [ 
+			ground1.getX() - ground2.getX(),
+			ground1.getY() - ground2.getY()
+		];
+		
+		// vector top1->top2
+		let t1_vector = [ 
+			top2.getX() - top1.getX(),
+			top2.getY() - top1.getY()
+		];
+		
+		// vector top2->top1
+		let t2_vector = [ 
+			top1.getX() - top2.getX(),
+			top1.getY() - top2.getY()
+		];
+		
+		let new_ground1A = thicken_point(ground1, g1_vector, 1);
+		let new_ground2A = thicken_point(ground2, g2_vector, -1);
+		let new_top1A = thicken_point(top1, t1_vector, 1);
+		let new_top2A = thicken_point(top2, t2_vector, -1);
+		
+		let new_ground1B = thicken_point(ground1, g1_vector, -1);
+		let new_ground2B = thicken_point(ground2, g2_vector, 1);
+		let new_top1B = thicken_point(top1, t1_vector, -1);
+		let new_top2B = thicken_point(top2, t2_vector, 1);
+
+		// face 1 and 2
+		push_face_into_wall(new_ground1A, new_ground2A, new_top1A, new_top2A, walls3D);
+		push_face_into_wall(new_ground1B, new_ground2B, new_top1B, new_top2B, walls3D);
+
+		// face 3 and 4
+		push_face_into_wall(new_ground1B, new_ground1A, new_top1B, new_top1A, walls3D);
+		push_face_into_wall(new_ground2B, new_ground2A, new_top2B, new_top2A, walls3D);
+
+		// face 5 (top)
+		push_face_into_wall(new_top1B, new_top2B, new_top1A, new_top2A, walls3D);
+	}
+
+	return [walls3D, getIndices(walls3D)];
+}
+
+class Point {
+	static copy(point) {
+		return new Point (
+				point.x,
+				point.y,
+				point.z);
+	}
+
+	constructor(x, y, z) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+	}
+
+	getX() { return this.x; }
+	getY() { return this.y; }
+	getZ() { return this.z; }
 	
-	return walls3D;
+	setX(x) { this.x = x; }
+	setY(y) { this.y = y; }
+	setZ(z) { this.z = z; }
+
+	moveX(delta) { this.x += delta; }
+	moveY(delta) { this.y += delta; }
+	moveZ(delta) { this.z += delta; }
+}
+
+var CONST_ANGLE = 135*(Math.PI/180);
+var CONST_COS = Math.cos(CONST_ANGLE);
+var CONST_SIN = Math.sin(CONST_ANGLE);
+
+function thicken_point(p1, vector, sign) {
+	let thickness = 0.01;
+	let new_point = Point.copy(p1);
+
+	// old way, it is better to compute the cos and sin only once
+	// let angle = sign*120*(Math.PI/180);
+	// let cos_value = Math.cos(angle);
+	// let sin_value = Math.sin(angle);
+	// let translation_vector = get_translation_vector(vector, thickness, cos_value, sin_value);
+
+	let translation_vector = get_translation_vector(vector, thickness, CONST_COS, CONST_SIN*sign);
+	move_point(new_point, translation_vector);
+
+	console.log(new_point);
+	return new_point;
+}
+
+function move_point(p1, vector) {
+	p1.moveX(vector[0]);
+	p1.moveY(vector[1]);
+}
+
+function get_translation_vector(vector, thickness, cos_value, sin_value) {
+	let vX = vector[0];
+	let vY = vector[1];
+
+	// normalize the vector
+	let divisor = Math.sqrt(vX*vX + vY*vY);
+	let nVector = [vX / divisor, vY / divisor];
+
+	// rotate the vector
+	let new_vector = [
+        nVector[0] * cos_value - nVector[1] * sin_value,
+        nVector[0] * sin_value + nVector[1] * cos_value
+	]
+	// adjust the norme of the vector
+	return [new_vector[0] * thickness, new_vector[1] * thickness];
+}
+
+function push_face_into_wall(ground1, ground2, top1, top2, walls) {
+	
+	walls.push(ground1.getX());
+	walls.push(ground1.getY());
+	walls.push(ground1.getZ());
+	
+	walls.push(ground2.getX());
+	walls.push(ground2.getY());
+	walls.push(ground2.getZ());
+	
+	walls.push(top1.getX());
+	walls.push(top1.getY());
+	walls.push(top1.getZ());
+
+	walls.push(top2.getX());
+	walls.push(top2.getY());
+	walls.push(top2.getZ());
+}
+
+function getIndices(walls) {
+	// for 4 points : [0, 1, 2, 2, 1, 3]
+	// 4 points == 1 wall
+	// => for 8 points [0, 1, 2, 2, 1, 3,    4, 5, 6, 6, 7]
+	// etc...
+	
+	// 1 point == 3 items in the wall
+	// 4 points = 12 items
+	if (walls.length % 12 != 0) {
+		return null;
+	}
+	
+	let ret = []
+
+	// walls.length % 12 == 4
+	for (let i = 0; i < walls.length; i += 4) {
+		ret.push(i);
+		ret.push(i+1);
+		ret.push(i+2);
+		ret.push(i+2);
+		ret.push(i+1);
+		ret.push(i+3);
+	}
+	return ret;
 }

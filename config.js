@@ -363,15 +363,21 @@ class Point {
 	moveZ(delta) { this.z += delta; }
 }
 
+var CONST_ANGLE = 120*(Math.PI/180);
+var CONST_COS = Math.cos(CONST_ANGLE);
+var CONST_SIN = Math.sin(CONST_ANGLE);
+
 function thicken_point(p1, vector, sign) {
 	let thickness = 0.01;
 	let new_point = Point.copy(p1);
 
-	let angle = sign*120*(Math.PI/180);
-	let cos_value = Math.cos(angle);
-	let sin_value = Math.sin(angle);
+	// old way, it is better to compute the cos and sin only once
+	// let angle = sign*120*(Math.PI/180);
+	// let cos_value = Math.cos(angle);
+	// let sin_value = Math.sin(angle);
+	// let translation_vector = get_translation_vector(vector, thickness, cos_value, sin_value);
 
-	let translation_vector = get_translation_vector(vector, thickness, cos_value, sin_value);
+	let translation_vector = get_translation_vector(vector, thickness, CONST_COS, CONST_SIN*sign);
 	move_point(new_point, translation_vector);
 
 	console.log(new_point);

@@ -128,73 +128,47 @@
                 fragPos.y = 1.0 - fragPos.y; //What why?
 
                 vec3 color;
+                float ratio = 1.0;
                 if(u_drawWall)
                 {
-                    color = vec3(0.0);
-
-                    // -----------------------------------------------------------------
-                    // Check all lights
-                    for(int i = 0; i < u_LightsLength; ++i)
-                    {
-                        vec2 lightPos = u_Lights[i];
-                        float distFragLight = distance(fragPos, lightPos);
-
-                        bool seeLight = true;
-                        // Check all walls
-                        for(int j = 0; j < u_WallsLength; ++j)
-                        {
-                            vec4 wall = u_Walls[j];
-                            if(!canSeeLight(fragPos, lightPos, wall))
-                            {
-                                seeLight = false;
-                                color = vec3(0.0);
-                                break;
-                            }
-                        }
-                        if(seeLight)
-                        {
-                            color += (u_LightsIntensity[i] * u_LightsColor[i]) / (distFragLight * float(u_Fading) * 0.4);
-                        }
-                    }
-                    // -----------------------------------------------------------------
+                    ratio = 0.4;
                 }
-                else 
+                
+                color = vec3(0.0);
+
+                //If fragment is part of a wall
+                for(int i = 0; i < u_WallsLength; ++i)
                 {
-                    color = vec3(0.0);
+                    vec4 wall = u_Walls[i];
 
-                    //If fragment is part of a wall
-                    for(int i = 0; i < u_WallsLength; ++i)
+                    // Draw that fragment to wall color
+                    if(inWall(fragPos, wall))
                     {
-                        vec4 wall = u_Walls[i];
+                        outColor = vec4(1.0, 0, 0, 1.0); // Red
+                        return;
+                    }
+                }
 
-                        // Draw that fragment to wall color
-                        if(inWall(fragPos, wall))
+                //Check all lights
+                for(int i = 0; i < u_LightsLength; ++i)
+                {
+                    vec2 lightPos = u_Lights[i];
+                    float distFragLight = distance(fragPos, lightPos);
+
+                    bool seeLight = true;
+                    // Check all walls
+                    for(int j = 0; j < u_WallsLength; ++j)
+                    {
+                        vec4 wall = u_Walls[j];
+                        if(!canSeeLight(fragPos, lightPos, wall))
                         {
-                            outColor = vec4(1.0,0,0,1.0); //TODO set the color to const maybe?
-                            return;
+                            seeLight = false;
+                            break;
                         }
                     }
-
-                    //Check all lights
-                    for(int i = 0; i < u_LightsLength; ++i)
+                    if(seeLight)
                     {
-                        vec2 lightPos = u_Lights[i];
-                        float distFragLight = distance(fragPos, lightPos);
-
-                        bool seeLight = true;
-                        for(int j = 0; j < u_WallsLength; ++j)
-                        {
-                            vec4 wall = u_Walls[j];
-                            if(!canSeeLight(fragPos, lightPos, wall))
-                            {
-                                seeLight = false;
-                                break;
-                            }
-                        }
-                        if(seeLight)
-                        {
-                            color += (u_LightsIntensity[i] * u_LightsColor[i]) / (distFragLight * float(u_Fading));
-                        }
+                        color += (u_LightsIntensity[i] * u_LightsColor[i]) / (distFragLight * float(u_Fading) * ratio);
                     }
                 }
 

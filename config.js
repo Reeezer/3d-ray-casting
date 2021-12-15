@@ -363,7 +363,7 @@ class Point {
 	moveZ(delta) { this.z += delta; }
 }
 
-var CONST_ANGLE = 120*(Math.PI/180);
+var CONST_ANGLE = 135*(Math.PI/180);
 var CONST_COS = Math.cos(CONST_ANGLE);
 var CONST_SIN = Math.sin(CONST_ANGLE);
 

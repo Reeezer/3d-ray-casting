@@ -273,26 +273,11 @@ function changeConfig(e) {
 	lightsIntensity = [];
 	lightsIntensity.push(...c.lightsIntensity);
 
-	walls = makeWalls(c.walls);
-	
-	for (let i = 0; i < walls.length; i+= 3) {
-		console.log('(' + walls[i] + ', ' + walls[i+1] + ', ' + walls[i+2] + ')')
-	}
-
-	// walls = [
-	// 		0.0, 0.0, 0.0,  // first point  (x, y, z)
-	// 		1.0,  0.0, 0.0, // second point (x, y, z)
-	// 		0.0, 0.0, 1.0,  // third point  (x, y, z)
-	// 		1.0, 0.0, 1.0   // fourth point (x, y, z)
-	// 	];
-
+	let [walls, indices] = makeWalls(c.walls);
 	wallsVertexBuffer = new Float32Array(walls);
-	wallsIndices = [0, 1, 2, 2, 1, 3];
-	wallsIndices = getIndices(walls);
-	console.log(wallIndices);
+	wallsIndices = indices;
 	wallsIndicesBuffer = new Uint16Array(wallsIndices);
-	console.log(walls);
-
+	
 	updateDisplay();
 }
 

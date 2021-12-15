@@ -81,6 +81,7 @@ let lights = [];
 let lightsColor = [];
 let lightsIntensity = [];
 let walls = [];
+let walls2D = [];
 let wallsVertexBuffer = null;
 let wallsIndices = null;
 let wallsIndicesBuffer = null;
@@ -274,6 +275,7 @@ function changeConfig(e) {
 	lightsIntensity.push(...c.lightsIntensity);
 
 	let [walls, indices] = makeWalls(c.walls);
+	walls2D = c.walls;
 	wallsVertexBuffer = new Float32Array(walls);
 	wallsIndices = indices;
 	wallsIndicesBuffer = new Uint16Array(wallsIndices);
@@ -312,6 +314,8 @@ function updateDisplay() {
 	gl.uniform3fv(uniformLightsColor, lightsColor);
 	gl.uniform1fv(uniformLightsIntensity, lightsIntensity);
 	gl.uniform1i(uniformLightsLength, lights.length / 2);
+	gl.uniform4fv(uniformWalls, walls2D);
+	gl.uniform1i(uniformWallsLength, walls2D.length / 4);
 }
 
 function initGUI() {

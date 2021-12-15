@@ -178,7 +178,7 @@ class Configuration {
 
 		let walls = [
 			// Walls x1, y1, x2, y2
-			0.1, 0.1, 0.9, 0.9, //draws wall from (0.1, 0.1) to (0.9, 0.9)
+			0.0,0.2, 0.5, 0.1, //draws wall from (0.1, 0.1) to (0.9, 0.9)
 		];
 
 		return new Configuration(lights, lightsColor, lightsIntensity, walls);
@@ -223,20 +223,32 @@ class Configuration {
 }
 
 function makeWalls(walls2D) {
-	
-	let height = 2.0;
+	let height = 0.1;
 	let walls3D = [];
     //Assert walls2D.length % 4 == 0
 	
 	// DO NOT USE TRIANGLESTRIP, USE TRIANGLES
 	for (let i = 0; i < walls2D.length / 4; i++) {
 		let currIndex = i * 4;
-		console.log(walls2D[currIndex] + " ");
 		let A1x = walls2D[currIndex];
 		let A1y = walls2D[currIndex+1];
 		let B1x = walls2D[currIndex+2];
 		let B1y = walls2D[currIndex+3];
-        
+
+		// now (0, 0) is bottom left
+		// invert the y-axis
+		// 1 because the max size is 1, don't change it plz
+		A1y = 1-A1y
+		B1y = 1-B1y        
+
+		// before (0, 0) was top left, now it is center
+		// => we need to offset the points
+		A1x = A1x * 2 -1
+		A1y = A1y * 2 -1
+		B1x = B1x * 2 -1
+		B1y = B1y * 2 -1
+
+
 		// A1
         walls3D.push(A1x);
 		walls3D.push(A1y);
@@ -256,7 +268,6 @@ function makeWalls(walls2D) {
 		walls3D.push(B1x);
 		walls3D.push(B1y);
 		walls3D.push(height);
-		break;
     }
 	
 	return walls3D;

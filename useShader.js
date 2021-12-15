@@ -82,6 +82,7 @@ let lightsColor = [];
 let lightsIntensity = [];
 let walls = [];
 let wallsVertexBuffer = null;
+let wallsIndices = null;
 let wallsIndicesBuffer = null;
 let wallBuffer = null;
 
@@ -143,39 +144,39 @@ window.requestAnimationFrame(draw);
 // FIXME remove
 
 	// gen the data
-wallsVertexBuffer = new Float32Array([
-	0.0, -1.0, 0.0,
-	0.0,  1.0, 0.0,
-	0.0,  1.0, 1.0,
-	0.0, -1.0, 1.0
-]);
-let wallsIndices = [0, 1, 2, 0, 2, 3];
-wallsIndicesBuffer = new Uint16Array(wallsIndices);
+// wallsVertexBuffer = new Float32Array([
+// 	0.0, -1.0, 0.0,
+// 	0.0,  1.0, 0.0,
+// 	0.0,  1.0, 0.5,
+// 	0.0, -1.0, 0.5
+// ]);
+// let wallsIndices = [0, 1, 2, 0, 2, 3];
+// wallsIndicesBuffer = new Uint16Array(wallsIndices);
 
-// disable vertex array for safety
-gl.bindVertexArray(null);
+// // disable vertex array for safety
+// gl.bindVertexArray(null);
 
-wallVBO = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
-gl.bufferData(gl.ARRAY_BUFFER, wallsVertexBuffer, gl.STATIC_DRAW);
+// wallVBO = gl.createBuffer();
+// gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
+// gl.bufferData(gl.ARRAY_BUFFER, wallsVertexBuffer, gl.STATIC_DRAW);
 
-wallEBO = gl.createBuffer();
-gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
-gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallsIndicesBuffer, gl.STATIC_DRAW);
+// wallEBO = gl.createBuffer();
+// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
+// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallsIndicesBuffer, gl.STATIC_DRAW);
 
-wallVAO = gl.createVertexArray();
+// wallVAO = gl.createVertexArray();
 
-// now bind it to the VAO
-gl.bindVertexArray(wallVAO);
-// bind indices
-gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
-// vertices and attributes
-gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
-gl.vertexAttribPointer(0, 3, gl.FLOAT, false, wallsVertexBuffer.BYTES_PER_ELEMENT * 3, 0);
-gl.enableVertexAttribArray(0);
+// // now bind it to the VAO
+// gl.bindVertexArray(wallVAO);
+// // bind indices
+// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
+// // vertices and attributes
+// gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
+// gl.vertexAttribPointer(0, 3, gl.FLOAT, false, wallsVertexBuffer.BYTES_PER_ELEMENT * 3, 0);
+// gl.enableVertexAttribArray(0);
 
-// unbind par sécurité
-gl.bindVertexArray(null);
+// // unbind par sécurité
+// gl.bindVertexArray(null);
 
 // ------------
 
@@ -234,6 +235,32 @@ function rotateCamera(angle, vector) {
 	mat4.multiply(rotateMatrix, tempMatrix, rotateMatrix);
 }
 
+function getIndices(walls) {
+	// for 4 points : [0, 1, 2, 2, 1, 3]
+	// 4 points == 1 wall
+	// => for 8 points [0, 1, 2, 2, 1, 3,    4, 5, 6, 6, 7]
+	// etc...
+	
+	// 1 point == 3 items in the wall
+	// 4 points = 12 items
+	if (walls.length % 12 != 0) {
+		return null;
+	}
+	
+	let ret = []
+
+	// walls.length % 12 == 4
+	for (let i = 0; i < walls.length; i += 4) {
+		ret.push(i);
+		ret.push(i+1);
+		ret.push(i+2);
+		ret.push(i+2);
+		ret.push(i+1);
+		ret.push(i+3);
+	}
+	return ret;
+}
+
 function changeConfig(e) {
 	let c = configs[configuration.value];
 
@@ -247,11 +274,55 @@ function changeConfig(e) {
 	lightsIntensity.push(...c.lightsIntensity);
 
 	walls = makeWalls(c.walls);
+	
+	for (let i = 0; i < walls.length; i+= 3) {
+		console.log('(' + walls[i] + ', ' + walls[i+1] + ', ' + walls[i+2] + ')')
+	}
+
+	// walls = [
+	// 		0.0, 0.0, 0.0,  // first point  (x, y, z)
+	// 		1.0,  0.0, 0.0, // second point (x, y, z)
+	// 		0.0, 0.0, 1.0,  // third point  (x, y, z)
+	// 		1.0, 0.0, 1.0   // fourth point (x, y, z)
+	// 	];
+
+	wallsVertexBuffer = new Float32Array(walls);
+	wallsIndices = [0, 1, 2, 2, 1, 3];
+	wallsIndices = getIndices(walls);
+	console.log(wallIndices);
+	wallsIndicesBuffer = new Uint16Array(wallsIndices);
+	console.log(walls);
 
 	updateDisplay();
 }
 
 function updateDisplay() {
+	
+	// disable vertex array for safety
+	gl.bindVertexArray(null);
+
+	wallVBO = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
+	gl.bufferData(gl.ARRAY_BUFFER, wallsVertexBuffer, gl.STATIC_DRAW);
+
+	wallEBO = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallsIndicesBuffer, gl.STATIC_DRAW);
+
+	wallVAO = gl.createVertexArray();
+
+	// now bind it to the VAO
+	gl.bindVertexArray(wallVAO);
+	// bind indices
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
+	// vertices and attributes
+	gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
+	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, wallsVertexBuffer.BYTES_PER_ELEMENT * 3, 0);
+	gl.enableVertexAttribArray(0);
+
+	// unbind par sécurité
+	gl.bindVertexArray(null);
+	
 	gl.uniform2fv(uniformLights, lights);
 	gl.uniform3fv(uniformLightsColor, lightsColor);
 	gl.uniform1fv(uniformLightsIntensity, lightsIntensity);

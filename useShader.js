@@ -89,7 +89,7 @@ let wallBuffer = null;
 let fading = { value: 100 };
 let lightIntensity = { value: 100 };
 let color = { value: [255, 255, 0] };
-let configuration = { value: 4 };
+let configuration = { value: 0 }; // Change the init scenario
 
 const gui = initGUI();
 

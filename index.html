@@ -36,8 +36,11 @@
             uniform mat4 uPMatrix;
             precision mediump float;
 
+            out vec2 pos;
+
             void main()
             {
+                pos = aVertexPosition.xy;
                 gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
             }
 		</script>
@@ -65,6 +68,8 @@
             uniform int u_WallsLength;
 
             uniform bool u_drawWall;
+
+            in vec2 pos;
 
             // https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
             bool intersect(vec2 p1, vec2 p2, vec2 p3, vec2 p4)
@@ -124,7 +129,7 @@
 
             void main()
             {
-                vec2 fragPos = gl_FragCoord.xy / u_WindowSize; // Window size needs to be changed to plane size maybe...
+                vec2 fragPos = (pos * 0.5) + 0.5; // coordinates are twice the size they used to be
                 fragPos.y = 1.0 - fragPos.y; //What why?
 
                 vec3 color;
@@ -144,7 +149,7 @@
                     // Draw that fragment to wall color
                     if(inWall(fragPos, wall))
                     {
-                        outColor = vec4(1.0, 0, 0, 1.0); // Red
+                        outColor = vec4(0, 0, 0, 1.0); // Red
                         return;
                     }
                 }

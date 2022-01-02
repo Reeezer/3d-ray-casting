@@ -14,6 +14,13 @@ const gl = canvas.getContext("webgl2", {
 	antialias: true,
 });
 
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', function(e) {
+	canvas.width = window.innerWidth;
+	canvas.height = window.innerHeight;
+});
+
 gl.getExtension("EXT_color_buffer_float"); // pour dessiner dans des textures de floats
 
 const vs = document.getElementById("shader-vs");
@@ -183,6 +190,8 @@ window.requestAnimationFrame(draw);
 
 
 function draw() {
+	gl.viewport(0, 0, canvas.width, canvas.height);
+
 	gl.clear(gl.COLOR_BUFFER_BIT);
 	gl.clear(gl.DEPTH_BUFFER_BIT);
 
@@ -284,7 +293,6 @@ function changeConfig(e) {
 }
 
 function updateDisplay() {
-	
 	// disable vertex array for safety
 	gl.bindVertexArray(null);
 

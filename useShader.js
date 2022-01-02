@@ -66,8 +66,6 @@ gl.enableVertexAttribArray(0);
 gl.vertexAttribPointer(0, 3, gl.FLOAT, false, vertices.BYTES_PER_ELEMENT * 3, 0);
 
 let ibo = gl.createBuffer();
-//gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-//gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW, 0);
 
 let wallVBO = 0;
 let wallVAO = 0;
@@ -149,46 +147,6 @@ changeConfig(0);
 
 window.requestAnimationFrame(draw);
 
-// FIXME remove
-
-	// gen the data
-// wallsVertexBuffer = new Float32Array([
-// 	0.0, -1.0, 0.0,
-// 	0.0,  1.0, 0.0,
-// 	0.0,  1.0, 0.5,
-// 	0.0, -1.0, 0.5
-// ]);
-// let wallsIndices = [0, 1, 2, 0, 2, 3];
-// wallsIndicesBuffer = new Uint16Array(wallsIndices);
-
-// // disable vertex array for safety
-// gl.bindVertexArray(null);
-
-// wallVBO = gl.createBuffer();
-// gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
-// gl.bufferData(gl.ARRAY_BUFFER, wallsVertexBuffer, gl.STATIC_DRAW);
-
-// wallEBO = gl.createBuffer();
-// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
-// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallsIndicesBuffer, gl.STATIC_DRAW);
-
-// wallVAO = gl.createVertexArray();
-
-// // now bind it to the VAO
-// gl.bindVertexArray(wallVAO);
-// // bind indices
-// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wallEBO);
-// // vertices and attributes
-// gl.bindBuffer(gl.ARRAY_BUFFER, wallVBO);
-// gl.vertexAttribPointer(0, 3, gl.FLOAT, false, wallsVertexBuffer.BYTES_PER_ELEMENT * 3, 0);
-// gl.enableVertexAttribArray(0);
-
-// // unbind par sécurité
-// gl.bindVertexArray(null);
-
-// ------------
-
-
 function draw() {
 	gl.viewport(0, 0, canvas.width, canvas.height);
 
@@ -215,19 +173,11 @@ function draw() {
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 	gl.drawElements(gl.TRIANGLE_STRIP, indices.length, gl.UNSIGNED_BYTE, 0);
 	
-	//gl.clear(gl.COLOR_BUFFER_BIT);
-	
 	gl.uniform1i(uniformIsWall, 1);
 
-	// draw da wall
 	gl.bindVertexArray(wallVAO);
 	gl.drawElements(gl.TRIANGLES, wallsIndices.length, gl.UNSIGNED_SHORT, 0);
 	gl.bindVertexArray(null);
-
-	// gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, wallIndices, gl.STATIC_DRAW, 0);
-	// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wbo);
-	// gl.vertexAttribPointer(program.wallVertexPositionAttribute,3,gl.FLOAT,false,0,0);
-	// gl.drawElements(gl.TRIANGLE, wallIndices.length, gl.UNSIGNED_BYTE, 0); // was gl.UNSIGNED_SHORT
 
 	window.requestAnimationFrame(draw);
 }
@@ -341,10 +291,10 @@ function initGUI() {
 
 	gui.add(fading, "value", 1, 1000).name("Vitesse d'estompement");
 
-	let folder = gui.addFolder("Propriété prochaine lumière");
-	folder.add(lightIntensity, "value", 0, 1000).name("Intensité de la lumière");
-	folder.addColor(color, "value");
-	folder.open();
+	// let folder = gui.addFolder("Propriété prochaine lumière");
+	// folder.add(lightIntensity, "value", 0, 1000).name("Intensité de la lumière");
+	// folder.addColor(color, "value");
+	// folder.open();
 
 	return gui;
 }
